@@ -27,18 +27,23 @@ impl<'z> Zsh<'z> {
 
     pub fn set_param_string<'a, 'b>(&self, param_name: &'a CStr, value: &'b CStr) {
         unsafe {
-            zsh_sys::setsparam(param_name.as_ptr().cast_mut(), value.metadup());
+            zsh_sys::setsparam(param_name.as_zsh_ptr(), value.metadup());
         }
     }
 
     pub fn set_param_array<'a, 'b>(&self, param_name: &'a CStr, values: &[&'b CStr]) {
         unsafe {
-            let zvalues = zsh_sys::zshcalloc(values.len() + 1) as *mut *mut c_char;
-            for (i, &val) in values.iter().enumerate() {
-                (*zvalues.add(i)) = val.metadup();
-            }
+            zsh_sys::setaparam(param_name.as_zsh_ptr(), values.metadup());
+        }
+    }
 
-            zsh_sys::setaparam(param_name.as_ptr().cast_mut(), zvalues);
+    pub fn append_param_array<'a, 'b>(&self, param_name: &'a CStr, values: &[&'b CStr]) {
+        unsafe {
+            zsh_sys::assignaparam(
+                param_name.as_zsh_ptr(),
+                values.metadup(),
+                zsh_sys::ASSPM_AUGMENT as i32,
+            );
         }
     }
 
@@ -49,12 +54,33 @@ impl<'z> Zsh<'z> {
     }
 }
 
-trait MetaDup {
+trait CStrUtils {
     fn metadup(&self) -> *mut c_char;
+    fn as_zsh_ptr(&self) -> *mut c_char;
 }
 
-impl<'a> MetaDup for &'a CStr {
+impl<'a> CStrUtils for &'a CStr {
     fn metadup(&self) -> *mut c_char {
         unsafe { zsh_sys::ztrdup_metafy(self.as_ptr().cast_mut()) }
+    }
+
+    fn as_zsh_ptr(&self) -> *mut c_char {
+        self.as_ptr().cast_mut()
+    }
+}
+
+trait CStrArrayUtils {
+    fn metadup(&self) -> *mut *mut c_char;
+}
+
+impl<'a> CStrArrayUtils for &[&'a CStr] {
+    fn metadup(&self) -> *mut *mut c_char {
+        unsafe {
+            let zvalues = zsh_sys::zshcalloc(self.len() + 1) as *mut *mut c_char;
+            for (i, &val) in self.iter().enumerate() {
+                (*zvalues.add(i)) = val.metadup();
+            }
+            zvalues
+        }
     }
 }

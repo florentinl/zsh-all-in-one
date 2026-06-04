@@ -12,7 +12,7 @@ impl zmod::Module for MyModule {
     }
 
     fn setup(&mut self, zsh: zmod::Zsh) {
-        zsh.set_param_array(c"precmd_functions", &[c"prompt_precmd"]);
+        zsh.append_param_array(c"precmd_functions", &[c"prompt_precmd"]);
     }
 }
 
