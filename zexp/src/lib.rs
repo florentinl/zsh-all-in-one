@@ -18,4 +18,14 @@ impl MyModule {
         }
         Ok(())
     }
+
+    #[zmod::builtin]
+    fn param_set_string(
+        &mut self,
+        zsh: zmod::Zsh,
+        _args: BuiltinArgs,
+    ) -> Result<(), zmod::error::ZshErr> {
+        zsh.set_param_string(c"MY_STRING", c"IS_DEFINITELY_A_STRING");
+        Ok(())
+    }
 }

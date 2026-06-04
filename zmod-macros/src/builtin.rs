@@ -98,7 +98,7 @@ impl ModuleImplBuilder {
             (
                 quote! {
                     static mut BINTAB: [#zmod::zsh_sys::builtin; #builtin_count] = [
-                        #(#builtins)*
+                        #(#builtins,)*
                     ];
 
                     #[allow(static_mut_refs)]
