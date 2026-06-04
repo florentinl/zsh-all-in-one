@@ -1,4 +1,5 @@
 mod builtin;
+mod function;
 mod utils;
 
 use std::vec;
@@ -12,6 +13,7 @@ use utils::{crate_root_path_from_name, find_fn_type, path_ident};
 
 enum ModuleMethodType {
     Builtin,
+    Function,
 }
 
 #[proc_macro_attribute]
@@ -25,13 +27,17 @@ pub fn builtin(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
+#[proc_macro_attribute]
+pub fn function(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
 struct ModuleImplBuilder {
     zmod: TokenStream2,
     self_ty: syn::Ident,
 
     bintab_records: Vec<BintabRecord>,
-    boot_parts: Vec<TokenStream2>,
-
+    setup_parts: Vec<TokenStream2>,
     trampolines: Vec<TokenStream2>,
 }
 
@@ -45,7 +51,7 @@ impl ModuleImplBuilder {
             zmod,
             self_ty,
             bintab_records: vec![],
-            boot_parts: vec![],
+            setup_parts: vec![],
             trampolines: vec![],
         };
 
@@ -54,13 +60,14 @@ impl ModuleImplBuilder {
                 let fn_type = find_fn_type(method).unwrap();
                 match fn_type {
                     Some(ModuleMethodType::Builtin) => builder.process_builtin(method),
+                    Some(ModuleMethodType::Function) => builder.process_function(method),
                     None => (),
                 }
             }
         }
 
         let trampolines = &builder.trampolines;
-        let boot_parts = &builder.boot_parts;
+        let setup_parts = &builder.setup_parts;
         let zmod = &builder.zmod;
         let self_ty = &builder.self_ty;
         let (bintab, bincount) = builder.make_bintab(zmod);
@@ -93,7 +100,6 @@ impl ModuleImplBuilder {
             // The C ABI expected by zsh.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn boot_(_: #zmod::zsh_sys::Module) -> ::core::ffi::c_int {
-                #(#boot_parts)*
                 0
             }
 
@@ -116,8 +122,11 @@ impl ModuleImplBuilder {
 
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn setup_(_: #zmod::zsh_sys::Module) -> ::core::ffi::c_int {
+
                 if let Err(e) = ::std::panic::catch_unwind(|| {
                     let zsh = #zmod::Zsh::new();
+
+                    #(#setup_parts)*
 
                     STATE.with_borrow_mut(move |state| state.setup(zsh));
                 }) {

@@ -1,5 +1,6 @@
 use std::{
     ffi::{CStr, c_char},
+    ptr::null_mut,
     rc::Rc,
 };
 
@@ -27,6 +28,12 @@ impl<'z> Zsh<'z> {
     pub fn set_param_string<'a, 'b>(&self, param_name: &'a CStr, value: &'b CStr) {
         unsafe {
             zsh_sys::setsparam(param_name.as_ptr().cast_mut(), value.metadup());
+        }
+    }
+
+    pub fn exec<'a>(&self, script: &'a CStr) {
+        unsafe {
+            zsh_sys::execstring(script.as_ptr().cast_mut(), 1, 0, null_mut());
         }
     }
 }

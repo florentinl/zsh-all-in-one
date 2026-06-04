@@ -3,22 +3,22 @@ use std::{
     marker::PhantomData,
 };
 
-pub struct BuiltinArgs<'a> {
+pub struct Args<'a> {
     current: *mut *mut c_char,
     _p: PhantomData<&'a mut ()>,
 }
 
-impl<'a> BuiltinArgs<'a> {
+impl<'a> Args<'a> {
     #[doc(hidden)]
     pub fn new(ptr: *mut *mut c_char) -> Self {
-        BuiltinArgs {
+        Args {
             current: ptr,
             _p: Default::default(),
         }
     }
 }
 
-impl<'a> Iterator for BuiltinArgs<'a> {
+impl<'a> Iterator for Args<'a> {
     type Item = &'a CStr;
 
     fn next(&mut self) -> Option<Self::Item> {

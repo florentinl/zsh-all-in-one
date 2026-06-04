@@ -47,7 +47,12 @@ impl ModuleImplBuilder {
             &format!("__zmod_builtin_{}_{}", self.self_ty, fname),
             Span2::call_site(),
         );
+
         let fname_lit = Literal::c_string(&CString::new(fname.to_string()).unwrap());
+        self.add_builtin(&fname_lit, &fname, &trampoline);
+    }
+
+    pub fn add_builtin(&mut self, bn_name: &Literal, fname: &Ident2, trampoline: &Ident2) {
         let zmod = &self.zmod;
 
         self.trampolines.push(quote! {
@@ -58,7 +63,7 @@ impl ModuleImplBuilder {
                 _func: ::core::ffi::c_int
             ) -> ::core::ffi::c_int {
                 let res = ::std::panic::catch_unwind(|| {
-                    let args = #zmod::builtin::BuiltinArgs::new(argv);
+                    let args = #zmod::args::Args::new(argv);
                     let zsh = #zmod::Zsh::new();
                     STATE.with_borrow_mut(move |state| {
                         match state.#fname(zsh, args) {
@@ -71,7 +76,7 @@ impl ModuleImplBuilder {
                 match res {
                     Ok(code) => code,
                     Err(panic) => {
-                        println!("paniced in {:?}: {:?}", #fname_lit, panic);
+                        println!("paniced in {:?}: {:?}", #bn_name, panic);
                         1
                     }
                 }
@@ -82,8 +87,8 @@ impl ModuleImplBuilder {
         let maxargs = LitInt::new("-1", Span2::call_site());
 
         self.bintab_records.push(BintabRecord {
-            nam: fname_lit,
-            handlerfunc: trampoline,
+            nam: bn_name.clone(),
+            handlerfunc: trampoline.clone(),
             minargs,
             maxargs,
         })

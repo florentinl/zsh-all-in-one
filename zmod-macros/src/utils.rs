@@ -42,5 +42,9 @@ pub fn find_fn_type(method: &ImplItemFn) -> Result<Option<ModuleMethodType>, Str
         return Ok(Some(ModuleMethodType::Builtin));
     }
 
+    if last_seg.iter().any(|seg| seg == "function") {
+        return Ok(Some(ModuleMethodType::Function));
+    }
+
     Ok(None)
 }
