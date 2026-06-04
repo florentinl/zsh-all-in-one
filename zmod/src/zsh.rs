@@ -31,6 +31,17 @@ impl<'z> Zsh<'z> {
         }
     }
 
+    pub fn set_param_array<'a, 'b>(&self, param_name: &'a CStr, values: &[&'b CStr]) {
+        unsafe {
+            let zvalues = zsh_sys::zshcalloc(values.len() + 1) as *mut *mut c_char;
+            for (i, &val) in values.iter().enumerate() {
+                (*zvalues.add(i)) = val.metadup();
+            }
+
+            zsh_sys::setaparam(param_name.as_ptr().cast_mut(), zvalues);
+        }
+    }
+
     pub fn exec<'a>(&self, script: &'a CStr) {
         unsafe {
             zsh_sys::execstring(script.as_ptr().cast_mut(), 1, 0, null_mut());
@@ -44,12 +55,6 @@ trait MetaDup {
 
 impl<'a> MetaDup for &'a CStr {
     fn metadup(&self) -> *mut c_char {
-        unsafe {
-            zsh_sys::metafy(
-                self.as_ptr().cast_mut(),
-                self.count_bytes() as i32,
-                zsh_sys::META_DUP as i32,
-            )
-        }
+        unsafe { zsh_sys::ztrdup_metafy(self.as_ptr().cast_mut()) }
     }
 }
