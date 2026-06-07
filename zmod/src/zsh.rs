@@ -54,7 +54,7 @@ impl<'z> Zsh<'z> {
     }
 }
 
-trait CStrUtils {
+pub(crate) trait CStrUtils {
     fn metadup(&self) -> *mut c_char;
     fn as_zsh_ptr(&self) -> *mut c_char;
 }
@@ -69,7 +69,7 @@ impl CStrUtils for &CStr {
     }
 }
 
-trait CStrArrayUtils {
+pub(crate) trait CStrArrayUtils {
     fn metadup(&self) -> *mut *mut c_char;
 }
 

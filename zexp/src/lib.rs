@@ -13,6 +13,7 @@ impl zmod::Module for MyModule {
 
     fn setup(&mut self, zsh: zmod::Zsh) {
         zsh.append_param_array(c"precmd_functions", &[c"prompt_precmd"]);
+        zsh.exec(c"bindkey \"^H\" custom_widget");
     }
 }
 
@@ -24,6 +25,23 @@ impl MyModule {
             let str = arg.to_string_lossy();
             println!("{i}: {str}");
         }
+        Ok(())
+    }
+
+    #[widget]
+    fn custom_widget(
+        &mut self,
+        _zsh: zmod::Zsh,
+        _zle: zmod::Zle,
+        args: Args,
+    ) -> Result<(), zmod::error::ZshErr> {
+        println!("Called from a custom_widget");
+
+        for (i, arg) in args.enumerate() {
+            let str = arg.to_string_lossy();
+            println!("{i}: {str}");
+        }
+
         Ok(())
     }
 

@@ -1,6 +1,7 @@
 mod builtin;
 mod function;
 mod utils;
+mod widget;
 
 use std::vec;
 
@@ -13,9 +14,11 @@ use utils::{crate_root_path_from_name, find_fn_type, path_ident};
 
 const BUILTIN_METHOD_MARKER: &str = "builtin";
 const FUNCTION_METHOD_MARKER: &str = "function";
+const WIDGET_METHOD_MARKER: &str = "widget";
 enum ModuleMethodType {
     Builtin,
     Function,
+    Widget,
 }
 
 #[proc_macro_attribute]
@@ -53,6 +56,7 @@ impl ModuleImplBuilder {
                 match fn_type {
                     Some(ModuleMethodType::Builtin) => builder.process_builtin(method),
                     Some(ModuleMethodType::Function) => builder.process_function(method),
+                    Some(ModuleMethodType::Widget) => builder.process_widget(method),
                     None => (),
                 }
             }

@@ -10,6 +10,7 @@ use syn::TypePath;
 use crate::BUILTIN_METHOD_MARKER;
 use crate::FUNCTION_METHOD_MARKER;
 use crate::ModuleMethodType;
+use crate::WIDGET_METHOD_MARKER;
 
 pub fn crate_root_path_from_name(public_name: &str) -> TokenStream2 {
     match crate_name(public_name) {
@@ -45,6 +46,11 @@ pub fn find_fn_type(method: &mut ImplItemFn) -> Result<Option<ModuleMethodType>,
         if attr.path().is_ident(FUNCTION_METHOD_MARKER) {
             index = Some(i);
             typ = Some(ModuleMethodType::Function);
+        }
+
+        if attr.path().is_ident(WIDGET_METHOD_MARKER) {
+            index = Some(i);
+            typ = Some(ModuleMethodType::Widget);
         }
     }
 
