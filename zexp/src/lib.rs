@@ -18,7 +18,7 @@ impl zmod::Module for MyModule {
 
 #[zmod::module_impl]
 impl MyModule {
-    #[zmod::builtin]
+    #[builtin]
     fn mybuiltin(&mut self, _zsh: zmod::Zsh, args: Args) -> Result<(), zmod::error::ZshErr> {
         for (i, arg) in args.enumerate() {
             let str = arg.to_string_lossy();
@@ -27,7 +27,7 @@ impl MyModule {
         Ok(())
     }
 
-    #[zmod::function]
+    #[function]
     fn prompt_precmd(&mut self, zsh: zmod::Zsh, _args: Args) -> Result<(), zmod::error::ZshErr> {
         let mut buf = Vec::new();
         write!(&mut buf, "lines: {} --> ", self.lines).unwrap();

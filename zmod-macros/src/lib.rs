@@ -11,6 +11,8 @@ use quote::quote;
 use syn::{ImplItem, ItemImpl, parse_macro_input};
 use utils::{crate_root_path_from_name, find_fn_type, path_ident};
 
+const BUILTIN_METHOD_MARKER: &str = "builtin";
+const FUNCTION_METHOD_MARKER: &str = "function";
 enum ModuleMethodType {
     Builtin,
     Function,
@@ -20,16 +22,6 @@ enum ModuleMethodType {
 pub fn module_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let imp: ItemImpl = parse_macro_input!(item as ItemImpl);
     ModuleImplBuilder::build(imp).into()
-}
-
-#[proc_macro_attribute]
-pub fn builtin(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-#[proc_macro_attribute]
-pub fn function(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
 }
 
 struct ModuleImplBuilder {

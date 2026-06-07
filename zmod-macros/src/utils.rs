@@ -7,6 +7,8 @@ use syn::ImplItemFn;
 use syn::Type;
 use syn::TypePath;
 
+use crate::BUILTIN_METHOD_MARKER;
+use crate::FUNCTION_METHOD_MARKER;
 use crate::ModuleMethodType;
 
 pub fn crate_root_path_from_name(public_name: &str) -> TokenStream2 {
@@ -31,20 +33,23 @@ pub fn path_ident(ty: &Type) -> Option<Ident> {
     }
 }
 
-pub fn find_fn_type(method: &ImplItemFn) -> Result<Option<ModuleMethodType>, String> {
-    let last_seg: Vec<String> = method
-        .attrs
-        .iter()
-        .filter_map(|attr| attr.path().segments.last().map(|seg| seg.ident.to_string()))
-        .collect();
+pub fn find_fn_type(method: &mut ImplItemFn) -> Result<Option<ModuleMethodType>, String> {
+    let mut index = None;
+    let mut typ = None;
+    for (i, attr) in method.attrs.iter().enumerate() {
+        if attr.path().is_ident(BUILTIN_METHOD_MARKER) {
+            index = Some(i);
+            typ = Some(ModuleMethodType::Builtin);
+        }
 
-    if last_seg.iter().any(|seg| seg == "builtin") {
-        return Ok(Some(ModuleMethodType::Builtin));
+        if attr.path().is_ident(FUNCTION_METHOD_MARKER) {
+            index = Some(i);
+            typ = Some(ModuleMethodType::Function);
+        }
     }
 
-    if last_seg.iter().any(|seg| seg == "function") {
-        return Ok(Some(ModuleMethodType::Function));
+    if let Some(index) = index {
+        method.attrs.remove(index);
     }
-
-    Ok(None)
+    Ok(typ)
 }

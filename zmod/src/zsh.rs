@@ -25,19 +25,19 @@ impl<'z> Zsh<'z> {
         }
     }
 
-    pub fn set_param_string<'a, 'b>(&self, param_name: &'a CStr, value: &'b CStr) {
+    pub fn set_param_string(&self, param_name: &CStr, value: &CStr) {
         unsafe {
             zsh_sys::setsparam(param_name.as_zsh_ptr(), value.metadup());
         }
     }
 
-    pub fn set_param_array<'a, 'b>(&self, param_name: &'a CStr, values: &[&'b CStr]) {
+    pub fn set_param_array(&self, param_name: &CStr, values: &[&CStr]) {
         unsafe {
             zsh_sys::setaparam(param_name.as_zsh_ptr(), values.metadup());
         }
     }
 
-    pub fn append_param_array<'a, 'b>(&self, param_name: &'a CStr, values: &[&'b CStr]) {
+    pub fn append_param_array(&self, param_name: &CStr, values: &[&CStr]) {
         unsafe {
             zsh_sys::assignaparam(
                 param_name.as_zsh_ptr(),
@@ -47,7 +47,7 @@ impl<'z> Zsh<'z> {
         }
     }
 
-    pub fn exec<'a>(&self, script: &'a CStr) {
+    pub fn exec(&self, script: &CStr) {
         unsafe {
             zsh_sys::execstring(script.as_ptr().cast_mut(), 1, 0, null_mut());
         }
@@ -59,7 +59,7 @@ trait CStrUtils {
     fn as_zsh_ptr(&self) -> *mut c_char;
 }
 
-impl<'a> CStrUtils for &'a CStr {
+impl CStrUtils for &CStr {
     fn metadup(&self) -> *mut c_char {
         unsafe { zsh_sys::ztrdup_metafy(self.as_ptr().cast_mut()) }
     }
@@ -73,7 +73,7 @@ trait CStrArrayUtils {
     fn metadup(&self) -> *mut *mut c_char;
 }
 
-impl<'a> CStrArrayUtils for &[&'a CStr] {
+impl CStrArrayUtils for &[&CStr] {
     fn metadup(&self) -> *mut *mut c_char {
         unsafe {
             let zvalues = zsh_sys::zshcalloc(self.len() + 1) as *mut *mut c_char;
