@@ -7,7 +7,7 @@ use std::vec;
 
 use builtin::BintabRecord;
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Ident as Ident2, Literal, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{ImplItem, ItemImpl, parse_macro_input};
 use utils::{crate_root_path_from_name, find_fn_type, path_ident};
@@ -34,6 +34,10 @@ struct ModuleImplBuilder {
     bintab_records: Vec<BintabRecord>,
     setup_parts: Vec<TokenStream2>,
     trampolines: Vec<TokenStream2>,
+
+    builtin_names: Vec<(Ident2, Literal)>,
+    function_names: Vec<(Ident2, Literal)>,
+    widget_names: Vec<(Ident2, Literal)>,
 }
 
 impl ModuleImplBuilder {
@@ -48,6 +52,9 @@ impl ModuleImplBuilder {
             bintab_records: vec![],
             setup_parts: vec![],
             trampolines: vec![],
+            builtin_names: vec![],
+            function_names: vec![],
+            widget_names: vec![],
         };
 
         for item in &mut imp.items {
@@ -68,10 +75,21 @@ impl ModuleImplBuilder {
         let self_ty = &builder.self_ty;
         let (bintab, bincount) = builder.make_bintab(zmod);
 
+        let (builtins_struct, builtins_impl) = builder.builtins_struct();
+        imp.items.push(builtins_impl);
+        let (functions_struct, functions_impl) = builder.functions_struct();
+        imp.items.push(functions_impl);
+        let (widgets_struct, widgets_impl) = builder.widgets_struct();
+        imp.items.push(widgets_impl);
+
         quote! {
             #imp
 
             #bintab
+
+            #builtins_struct
+            #functions_struct
+            #widgets_struct
 
             thread_local! {
                 pub(crate) static STATE: std::cell::RefCell<#self_ty> =

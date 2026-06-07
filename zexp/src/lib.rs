@@ -1,52 +1,32 @@
-use std::{ffi::CString, io::Write as _};
+use std::{
+    ffi::{CStr, CString},
+    io::Write as _,
+};
 
-use zmod::{Module as _, args::Args};
+use zmod::{Module as _, args::Args, zsh::ShellHook};
 
-struct MyModule {
+struct ZExp {
     lines: usize,
 }
 
-impl zmod::Module for MyModule {
+impl zmod::Module for ZExp {
     fn new() -> Self {
-        MyModule { lines: 0 }
+        ZExp { lines: 0 }
     }
 
     fn setup(&mut self, zsh: zmod::Zsh) {
-        zsh.append_param_array(c"precmd_functions", &[c"prompt_precmd"]);
-        zsh.exec(c"bindkey \"^H\" custom_widget");
+        zsh.add_hook(ShellHook::PreCmd, Self::FUNCTIONS.__zexp_prompt_precmd);
     }
 }
 
 #[zmod::module_impl]
-impl MyModule {
-    #[builtin]
-    fn mybuiltin(&mut self, _zsh: zmod::Zsh, args: Args) -> Result<(), zmod::error::ZshErr> {
-        for (i, arg) in args.enumerate() {
-            let str = arg.to_string_lossy();
-            println!("{i}: {str}");
-        }
-        Ok(())
-    }
-
-    #[widget]
-    fn custom_widget(
-        &mut self,
-        _zsh: zmod::Zsh,
-        _zle: zmod::Zle,
-        args: Args,
-    ) -> Result<(), zmod::error::ZshErr> {
-        println!("Called from a custom_widget");
-
-        for (i, arg) in args.enumerate() {
-            let str = arg.to_string_lossy();
-            println!("{i}: {str}");
-        }
-
-        Ok(())
-    }
-
+impl ZExp {
     #[function]
-    fn prompt_precmd(&mut self, zsh: zmod::Zsh, _args: Args) -> Result<(), zmod::error::ZshErr> {
+    fn __zexp_prompt_precmd(
+        &mut self,
+        zsh: zmod::Zsh,
+        _args: Args,
+    ) -> Result<(), zmod::error::ZshErr> {
         let mut buf = Vec::new();
         write!(&mut buf, "lines: {} --> ", self.lines).unwrap();
 

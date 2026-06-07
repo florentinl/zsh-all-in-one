@@ -1,8 +1,8 @@
 use quote::quote;
 use std::ffi::CString;
 
-use proc_macro2::{Ident as Ident2, Literal, Span as Span2};
-use syn::ImplItemFn;
+use proc_macro2::{Ident, Literal, Span, TokenStream};
+use syn::{ImplItem, ImplItemFn, parse_quote};
 
 use crate::ModuleImplBuilder;
 
@@ -10,12 +10,13 @@ impl ModuleImplBuilder {
     pub fn process_widget(&mut self, method: &mut ImplItemFn) {
         let fname = method.sig.ident.clone();
 
-        let trampoline = Ident2::new(
+        let trampoline = Ident::new(
             &format!("__zmod_builtin_{}_{}", self.self_ty, fname),
-            Span2::call_site(),
+            Span::call_site(),
         );
 
         let fname_lit = Literal::c_string(&CString::new(fname.to_string()).unwrap());
+        self.widget_names.push((fname.clone(), fname_lit.clone()));
 
         let zmod = &self.zmod;
         self.trampolines.push(quote! {
@@ -49,5 +50,32 @@ impl ModuleImplBuilder {
                 eprintln!("Failed to bind widget {:?}: {}", #fname_lit, err);
             }
         });
+    }
+
+    pub fn widgets_struct(&self) -> (TokenStream, ImplItem) {
+        let widget_struct_name = Ident::new(&format!("{}Widgets", self.self_ty), Span::call_site());
+
+        let fields = self
+            .widget_names
+            .iter()
+            .map(|(ident, _)| quote! { #ident: &'static CStr });
+
+        let inits = self
+            .widget_names
+            .iter()
+            .map(|(ident, lit)| quote! { #ident: #lit });
+
+        (
+            quote! {
+                struct #widget_struct_name {
+                    #( #fields, )*
+                }
+            },
+            parse_quote! {
+                const WIDGETS: #widget_struct_name = #widget_struct_name {
+                    #( #inits, )*
+                };
+            },
+        )
     }
 }

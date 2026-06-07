@@ -4,6 +4,30 @@ use std::{
     rc::Rc,
 };
 
+pub enum ShellHook {
+    ChPwd,
+    PreCmd,
+    PreExec,
+    Periodic,
+    ZshAddHistory,
+    ZshExit,
+    ZshDirectoryName,
+}
+
+impl ShellHook {
+    const fn array_name(&self) -> &'static CStr {
+        match self {
+            ShellHook::ChPwd => c"chpwd_functions",
+            ShellHook::PreCmd => c"precmd_functions",
+            ShellHook::PreExec => c"preexec_functions",
+            ShellHook::Periodic => c"periodic_functions",
+            ShellHook::ZshAddHistory => c"zshaddhistory_functions",
+            ShellHook::ZshExit => c"zshexit_functions",
+            ShellHook::ZshDirectoryName => c"zsh_directory_name_functions",
+        }
+    }
+}
+
 /// Zero-sized capability proving "you are on the zsh thread right now".
 pub struct Zsh<'z> {
     _no_send_sync: Rc<()>,
@@ -51,6 +75,10 @@ impl<'z> Zsh<'z> {
         unsafe {
             zsh_sys::execstring(script.as_ptr().cast_mut(), 1, 0, null_mut());
         }
+    }
+
+    pub fn add_hook(&self, hook: ShellHook, shell_function_name: &CStr) {
+        self.append_param_array(hook.array_name(), &[shell_function_name]);
     }
 }
 
