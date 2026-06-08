@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CStr, c_char},
+    ffi::{CStr, CString, c_char},
     ptr::null_mut,
     rc::Rc,
 };
@@ -24,6 +24,30 @@ impl ShellHook {
             ShellHook::ZshAddHistory => c"zshaddhistory_functions",
             ShellHook::ZshExit => c"zshexit_functions",
             ShellHook::ZshDirectoryName => c"zsh_directory_name_functions",
+        }
+    }
+}
+
+pub enum ZleWidgetHook {
+    ISearchExit,
+    ISearchUpdate,
+    LinePreRedraw,
+    LineInit,
+    LineFinish,
+    HistoryLineSet,
+    KeymapSelect,
+}
+
+impl ZleWidgetHook {
+    const fn hook_name(&self) -> &'static CStr {
+        match self {
+            ZleWidgetHook::ISearchExit => c"isearch-exit",
+            ZleWidgetHook::ISearchUpdate => c"isearch-update",
+            ZleWidgetHook::LinePreRedraw => c"line-pre-redraw",
+            ZleWidgetHook::LineInit => c"line-init",
+            ZleWidgetHook::LineFinish => c"line-finish",
+            ZleWidgetHook::HistoryLineSet => c"history-line-set",
+            ZleWidgetHook::KeymapSelect => c"keymap-select",
         }
     }
 }
@@ -73,16 +97,27 @@ impl<'z> Zsh<'z> {
 
     pub fn exec(&self, script: &CStr) {
         unsafe {
-            zsh_sys::execstring(script.as_ptr().cast_mut(), 1, 0, null_mut());
+            zsh_sys::execstring(script.as_zsh_ptr(), 1, 0, null_mut());
         }
     }
 
     pub fn add_hook(&self, hook: ShellHook, shell_function_name: &CStr) {
         self.append_param_array(hook.array_name(), &[shell_function_name]);
     }
+
+    pub fn add_zle_hook_widget(&self, hook: ZleWidgetHook, shell_function_name: &CStr) {
+        let script = format!(
+            "add-zle-hook-widget {:?} {:?}",
+            hook.hook_name(),
+            shell_function_name
+        );
+        let cscript = CString::new(script).unwrap();
+        self.exec(&cscript);
+    }
 }
 
 pub(crate) trait CStrUtils {
+    fn dup(&self) -> *mut c_char;
     fn metadup(&self) -> *mut c_char;
     fn as_zsh_ptr(&self) -> *mut c_char;
 }
@@ -90,6 +125,10 @@ pub(crate) trait CStrUtils {
 impl CStrUtils for &CStr {
     fn metadup(&self) -> *mut c_char {
         unsafe { zsh_sys::ztrdup_metafy(self.as_ptr().cast_mut()) }
+    }
+
+    fn dup(&self) -> *mut c_char {
+        unsafe { zsh_sys::ztrdup(self.as_ptr()) }
     }
 
     fn as_zsh_ptr(&self) -> *mut c_char {
