@@ -1,8 +1,17 @@
 use std::{
     ffi::{CStr, CString, c_char},
+    fs::File,
+    io::{ErrorKind, Read as _, Write as _},
+    os::{fd::IntoRawFd as _, unix::fs::OpenOptionsExt as _},
     ptr::null_mut,
     rc::Rc,
+    str::FromStr as _,
 };
+
+use nix::{sys::stat::Mode, unistd};
+use tempfile::TempDir;
+
+use crate::internal::zle::bind_filedesc;
 
 pub enum ShellHook {
     ChPwd,
@@ -114,6 +123,33 @@ impl<'z> Zsh<'z> {
         let cscript = CString::new(script).unwrap();
         self.exec(&cscript);
     }
+
+    pub fn add_zle_fd_listener_widget(&self, widget_name: &CStr) -> WidgetFdWriter {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(widget_name.to_string_lossy().to_string());
+
+        unistd::mkfifo(&path, Mode::S_IRUSR | Mode::S_IWUSR).unwrap();
+
+        let write_end_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(nix::libc::O_APPEND)
+            .open(&path)
+            .expect("Failed to open fifo for writing");
+
+        let read_end_file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NONBLOCK)
+            .open(&path)
+            .expect("Failed to open fifo for reading");
+
+        bind_filedesc(read_end_file.into_raw_fd(), widget_name);
+
+        WidgetFdWriter {
+            file: write_end_file,
+            _temp_dir: dir,
+        }
+    }
 }
 
 pub(crate) trait CStrUtils {
@@ -148,6 +184,52 @@ impl CStrArrayUtils for &[&CStr] {
                 (*zvalues.add(i)) = val.metadup();
             }
             zvalues
+        }
+    }
+}
+
+pub struct WidgetFdWriter {
+    file: File,
+    #[doc(hidden)]
+    _temp_dir: TempDir,
+}
+
+impl WidgetFdWriter {
+    pub fn write(&mut self, value: &str) -> std::io::Result<usize> {
+        self.file.write(value.as_bytes())
+    }
+}
+pub struct WidgetFdReader {
+    pub(crate) file: Option<File>,
+}
+
+impl WidgetFdReader {
+    pub fn read_to_end(&mut self) -> Result<String, String> {
+        if let Some(file) = self.file.as_mut() {
+            let mut content = vec![];
+            let mut buf = [0u8; 64];
+            loop {
+                match file.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(len) => content.extend_from_slice(&buf[..len]),
+                    Err(err) if err.kind() == ErrorKind::Interrupted => continue,
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => break,
+                    Err(err) => return Err(err.to_string()),
+                }
+            }
+            let content = String::from_utf8(content).map_err(|e| e.to_string())?;
+            Ok(content)
+        } else {
+            Err(String::from_str("No files available").unwrap())
+        }
+    }
+}
+
+impl Drop for WidgetFdReader {
+    fn drop(&mut self) {
+        if let Some(file) = self.file.take() {
+            // we should not close this file ever
+            let _ = file.into_raw_fd();
         }
     }
 }

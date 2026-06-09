@@ -1,7 +1,11 @@
 use std::{
     ffi::{CStr, c_char},
+    fs::File,
     marker::PhantomData,
+    os::fd::FromRawFd as _,
 };
+
+use crate::zsh::WidgetFdReader;
 
 pub struct Args<'a> {
     current: *mut *mut c_char,
@@ -15,6 +19,14 @@ impl<'a> Args<'a> {
             current: ptr,
             _p: Default::default(),
         }
+    }
+
+    pub fn as_fd_reader(mut self) -> Option<WidgetFdReader> {
+        let first = self.next()?;
+        let raw_fd = first.to_string_lossy().parse().ok()?;
+
+        let file = unsafe { File::from_raw_fd(raw_fd) };
+        Some(WidgetFdReader { file: Some(file) })
     }
 }
 

@@ -1,6 +1,8 @@
 use std::{
     ffi::{CStr, CString},
     io::Write as _,
+    thread,
+    time::Duration,
 };
 
 use zmod::{
@@ -24,6 +26,14 @@ impl zmod::Module for ZExp {
             ZleWidgetHook::LinePreRedraw,
             Self::WIDGETS.__zexp_line_pre_redraw,
         );
+        let mut writer = zsh.add_zle_fd_listener_widget(Self::WIDGETS.__zexp_periodic);
+
+        thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_secs(5));
+                writer.write("x").unwrap();
+            }
+        });
     }
 }
 
@@ -49,7 +59,20 @@ impl ZExp {
         _zle: zmod::Zle,
         _args: Args,
     ) -> Result<(), zmod::error::ZshErr> {
-        println!("This is on every keystroke man");
+        Ok(())
+    }
+
+    #[widget]
+    fn __zexp_periodic(
+        &mut self,
+        _zsh: zmod::Zsh,
+        _zle: zmod::Zle,
+        args: Args,
+    ) -> Result<(), zmod::error::ZshErr> {
+        if let Some(mut reader) = args.as_fd_reader() {
+            let _ = reader.read_to_end();
+        }
+
         Ok(())
     }
 }

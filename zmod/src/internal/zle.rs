@@ -1,4 +1,6 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
+use std::os::fd::RawFd;
+use std::ptr;
 
 use crate::zsh::CStrUtils as _;
 
@@ -18,4 +20,25 @@ pub fn add_widget(name: &CStr, trampoline: WidgetFunc) -> Result<(), ZshErr> {
     }
 
     Ok(())
+}
+
+pub(crate) fn bind_filedesc(fd: RawFd, widget_name: &CStr) {
+    unsafe {
+        let mut ops = zsh_sys::options {
+            ind: [0; 128],
+            args: ptr::null_mut(),
+            argscount: 0,
+            argsalloc: 0,
+        };
+
+        ops.ind['w' as usize] = 1;
+        ops.ind['F' as usize] = 1;
+
+        let fd = CString::new(fd.to_string()).unwrap();
+        let fd_ptr = fd.as_c_str().as_zsh_ptr();
+
+        let mut args = [fd_ptr, widget_name.as_zsh_ptr(), ptr::null_mut()];
+
+        zsh_sys::bin_zle(c"zle".as_zsh_ptr(), args.as_mut_ptr(), &mut ops, 1);
+    }
 }
