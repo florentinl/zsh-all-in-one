@@ -1,78 +1,48 @@
 use std::{
     ffi::{CStr, CString},
     io::Write as _,
-    thread,
-    time::Duration,
 };
 
-use zmod::{
-    Module as _,
-    args::Args,
-    zsh::{ShellHook, ZleWidgetHook},
-};
+use zmod::{Module as _, args::Args, zsh::ShellHook};
 
-struct ZExp {
-    lines: usize,
-}
+struct ZExp {}
 
 impl zmod::Module for ZExp {
     fn new() -> Self {
-        ZExp { lines: 0 }
+        ZExp {}
     }
 
     fn setup(&mut self, zsh: zmod::Zsh) {
-        zsh.add_hook(ShellHook::PreCmd, Self::FUNCTIONS.__zexp_precmd);
-        zsh.add_zle_hook_widget(
-            ZleWidgetHook::LinePreRedraw,
-            Self::WIDGETS.__zexp_line_pre_redraw,
-        );
-        let mut writer = zsh.add_zle_fd_listener_widget(Self::WIDGETS.__zexp_periodic);
-
-        thread::spawn(move || {
-            loop {
-                thread::sleep(Duration::from_secs(5));
-                writer.write("x").unwrap();
-            }
-        });
+        zsh.add_hook(ShellHook::ChPwd, Self::FUNCTIONS.__zexp_cwd);
+        self.compute_prompt(&zsh);
     }
 }
 
 #[zmod::module_impl]
 impl ZExp {
-    #[function]
-    fn __zexp_precmd(&mut self, zsh: zmod::Zsh, _args: Args) -> Result<(), zmod::error::ZshErr> {
-        let mut buf = Vec::new();
-        write!(&mut buf, "lines: {} --> ", self.lines).unwrap();
+    fn compute_prompt(&mut self, zsh: &zmod::Zsh) {
+        let dir = std::env::current_dir().unwrap_or("<unknown>".into());
 
+        let dir_segment = if let Some(home) = std::env::home_dir()
+            && let Ok(dir) = dir.strip_prefix(&home)
+        {
+            format!("~/{}", dir.to_string_lossy())
+        } else {
+            dir.to_string_lossy().to_string()
+        };
+
+        let user = std::env::var("USER").unwrap_or("anon".into());
+
+        let mut buf = Vec::new();
+        write!(&mut buf, "{user} > {} --> ", dir_segment).unwrap();
         let prompt = unsafe { CString::from_vec_unchecked(buf) };
 
         zsh.set_param_string(c"PROMPT", &prompt);
-
-        self.lines += 1;
-        Ok(())
     }
 
-    #[widget]
-    fn __zexp_line_pre_redraw(
-        &mut self,
-        _zsh: zmod::Zsh,
-        _zle: zmod::Zle,
-        _args: Args,
-    ) -> Result<(), zmod::error::ZshErr> {
-        Ok(())
-    }
-
-    #[widget]
-    fn __zexp_periodic(
-        &mut self,
-        _zsh: zmod::Zsh,
-        _zle: zmod::Zle,
-        args: Args,
-    ) -> Result<(), zmod::error::ZshErr> {
-        if let Some(mut reader) = args.as_fd_reader() {
-            let _ = reader.read_to_end();
-        }
-
+    #[function]
+    fn __zexp_cwd(&mut self, zsh: zmod::Zsh, _args: Args) -> Result<(), zmod::error::ZshErr> {
+        self.compute_prompt(&zsh);
         Ok(())
     }
 }
