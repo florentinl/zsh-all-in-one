@@ -114,11 +114,11 @@ impl<'z> Zsh<'z> {
         self.append_param_array(hook.array_name(), &[shell_function_name]);
     }
 
-    pub fn add_zle_hook_widget(&self, hook: ZleWidgetHook, shell_function_name: &CStr) {
+    pub fn add_zle_hook_widget(&self, hook: ZleWidgetHook, widget_name: &CStr) {
         let script = format!(
             "add-zle-hook-widget {:?} {:?}",
             hook.hook_name(),
-            shell_function_name
+            widget_name
         );
         let cscript = CString::new(script).unwrap();
         self.exec(&cscript);

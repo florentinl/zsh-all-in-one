@@ -4,7 +4,7 @@ pub mod error;
 pub use zsh_sys;
 
 mod module_trait;
-mod zle;
+pub mod zle;
 pub mod zsh;
 
 pub use zmod_macros::module_impl;
